@@ -4,360 +4,150 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0a0e1a">
 <title>家庭守护</title>
-<link rel="manifest" href="data:application/json,{}">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
-:root {
-  --bg: #0a0e1a;
-  --surface: #111827;
-  --surface2: #1a2336;
-  --border: #1e2d45;
-  --accent: #3b82f6;
-  --accent2: #06b6d4;
-  --green: #10b981;
-  --amber: #f59e0b;
-  --red: #ef4444;
-  --text: #e2e8f0;
-  --text2: #94a3b8;
-  --text3: #475569;
-}
+:root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2336;--border:#1e2d45;--accent:#3b82f6;--accent2:#06b6d4;--green:#10b981;--amber:#f59e0b;--red:#ef4444;--text:#e2e8f0;--text2:#94a3b8;--text3:#475569}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 40% at 20% 20%,rgba(59,130,246,.08) 0%,transparent 70%),radial-gradient(ellipse 50% 50% at 80% 80%,rgba(6,182,212,.06) 0%,transparent 70%);pointer-events:none;z-index:0}
+.screen{display:none;min-height:100vh;position:relative;z-index:1;flex-direction:column}
+.screen.active{display:flex}
 
-* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+/* ── LOADING ── */
+#s-loading{align-items:center;justify-content:center}
+.load-box{text-align:center;padding:32px}
+.spinner{width:52px;height:52px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 20px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-title{font-size:16px;font-weight:600;margin-bottom:8px}
+.load-sub{font-size:12px;color:var(--text3);font-family:'Space Mono',monospace;margin-bottom:4px}
+.load-progress{font-size:11px;color:var(--text3);min-height:18px}
+.err-box{display:none;margin-top:24px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.4);border-radius:14px;padding:20px;max-width:320px;text-align:left}
+.err-box b{color:var(--red);font-size:14px;display:block;margin-bottom:8px}
+.err-box p{font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:12px}
+.err-actions{display:flex;gap:8px;flex-wrap:wrap}
+.xbtn{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-size:12px;cursor:pointer;font-family:'Noto Sans SC',sans-serif;transition:all .2s}
+.xbtn:hover{border-color:var(--accent)}
+.xbtn.accent{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff}
 
-body {
-  font-family: 'Noto Sans SC', sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-  min-height: 100dvh;
-  overflow-x: hidden;
-}
+/* ── SETUP ── */
+#s-setup{align-items:center;justify-content:center;padding:24px}
+.card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:36px 28px;box-shadow:0 0 60px rgba(59,130,246,.08)}
+.logo{text-align:center;margin-bottom:28px}
+.logo-icon{width:72px;height:72px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 12px;box-shadow:0 0 30px rgba(59,130,246,.3)}
+.logo h1{font-size:22px;font-weight:700;letter-spacing:2px;background:linear-gradient(135deg,#fff,var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.logo p{font-size:12px;color:var(--text3);margin-top:4px;font-family:'Space Mono',monospace}
+.lbl{display:block;font-size:11px;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+.role-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px}
+.role-btn{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 6px;cursor:pointer;text-align:center;transition:all .2s;color:var(--text2);font-family:'Noto Sans SC',sans-serif}
+.role-btn .e{font-size:26px;display:block;margin-bottom:6px}
+.role-btn .n{font-size:11px;line-height:1.3}
+.role-btn.sel,.role-btn:hover{border-color:var(--accent);background:rgba(59,130,246,.12);color:var(--text)}
+.inp{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;color:var(--text);font-size:15px;font-family:'Space Mono',monospace;letter-spacing:3px;text-align:center;outline:none;transition:border-color .2s;margin-bottom:16px}
+.inp:focus{border-color:var(--accent)}
+.inp::placeholder{letter-spacing:1px;color:var(--text3);font-family:'Noto Sans SC',sans-serif}
+.inp.ni{font-family:'Noto Sans SC',sans-serif;letter-spacing:0;text-align:left}
+.primary-btn{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:12px;padding:16px;color:#fff;font-size:16px;font-weight:700;font-family:'Noto Sans SC',sans-serif;cursor:pointer;transition:all .2s;box-shadow:0 4px 20px rgba(59,130,246,.3)}
+.primary-btn:active{transform:scale(.98)}
+.hint{font-size:12px;color:var(--text3);text-align:center;margin-top:14px;line-height:1.7}
+.hint b{color:var(--text2)}
+.link-btn{background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;font-family:'Noto Sans SC',sans-serif;text-decoration:underline;margin-top:10px;display:block;text-align:center}
+.link-btn:hover{color:var(--accent)}
+.fb-status-bar{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);border-radius:10px;padding:8px 12px;font-size:12px;color:var(--accent2);margin-bottom:16px;display:none;align-items:center;gap:8px}
+.fb-status-bar.show{display:flex}
+.fb-status-bar.warn{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3);color:var(--amber)}
 
-body::before {
-  content:'';
-  position:fixed; inset:0;
-  background:
-    radial-gradient(ellipse 60% 40% at 20% 20%, rgba(59,130,246,0.08) 0%, transparent 70%),
-    radial-gradient(ellipse 50% 50% at 80% 80%, rgba(6,182,212,0.06) 0%, transparent 70%);
-  pointer-events:none; z-index:0;
-}
+/* ── FIREBASE CONFIG OVERLAY ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:2000;display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
+.overlay.show{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:24px;width:100%;max-width:440px;max-height:92vh;overflow-y:auto}
+.modal h2{font-size:17px;margin-bottom:8px}
+.modal .desc{font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.7}
+.step{background:var(--surface2);border-radius:10px;padding:12px 14px;margin-bottom:10px;font-size:12px;line-height:1.9;color:var(--text2);display:flex;gap:10px;align-items:flex-start}
+.step-n{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;background:var(--accent);border-radius:50%;font-size:11px;font-weight:700;color:#fff;margin-top:1px;flex-shrink:0}
+.step a{color:var(--accent2)}
+.step code{background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.25);border-radius:3px;padding:1px 5px;font-family:'Space Mono',monospace;font-size:11px;color:var(--accent2);word-break:break-all}
+.cfg-ta{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;color:var(--text);font-size:12px;font-family:'Space Mono',monospace;outline:none;resize:vertical;min-height:120px;margin:10px 0 14px;transition:border-color .2s;line-height:1.6}
+.cfg-ta:focus{border-color:var(--accent)}
+.modal-btns{display:flex;gap:8px}
+.sec-btn{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;color:var(--text2);font-family:'Noto Sans SC',sans-serif;cursor:pointer;font-size:13px;transition:all .2s}
+.sec-btn:hover{border-color:var(--accent);color:var(--text)}
+.modal-note{font-size:11px;color:var(--text3);text-align:center;margin-top:10px;line-height:1.6}
 
-.screen { display:none; min-height:100vh; min-height:100dvh; position:relative; z-index:1; }
-.screen.active { display:flex; flex-direction:column; }
+/* ── TOP BAR ── */
+.top-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;gap:8px}
+.tbl{display:flex;align-items:center;gap:10px;min-width:0}
+.tbt{font-size:15px;font-weight:700}
+.tbs{font-size:11px;color:var(--text3);font-family:'Space Mono',monospace}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:all .3s}
+.dot.on{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
+.dot.off{background:var(--red)}
+.dot.wait{background:var(--amber);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(.8)}}
+.ibtn{background:none;border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text2);font-size:12px;cursor:pointer;font-family:'Noto Sans SC',sans-serif;transition:all .2s;white-space:nowrap;flex-shrink:0}
+.ibtn:hover{border-color:var(--accent);color:var(--text)}
+.ibtn.red:hover{border-color:var(--red);color:var(--red)}
 
-/* ─── LOADING ─── */
-#screen-loading {
-  align-items:center; justify-content:center; text-align:center;
-}
-.loading-spinner {
-  width:48px; height:48px;
-  border:3px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius:50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 16px;
-}
-@keyframes spin { to { transform:rotate(360deg); } }
+/* ── MAP ── */
+.map-wrap{flex:1;position:relative;overflow:hidden;background:var(--surface2);min-height:0}
+#map{width:100%;height:100%;min-height:300px}
+.leaflet-container{background:#0d1520!important}
+.map-pills{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:999;display:flex;gap:6px;pointer-events:none}
+.pill{background:rgba(10,14,26,.9);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:11px;color:var(--text2);backdrop-filter:blur(8px);white-space:nowrap}
+.pill.live{border-color:var(--green);color:var(--green)}
+.fab{position:absolute;bottom:14px;right:14px;z-index:999;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 14px;color:var(--text);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:'Noto Sans SC',sans-serif;box-shadow:0 4px 20px rgba(0,0,0,.3);transition:all .2s}
+.fab:hover{border-color:var(--accent)}
 
-/* ─── SETUP ─── */
-#screen-setup {
-  align-items:center; justify-content:center; padding:24px;
-}
+/* ── PANEL ── */
+.panel{background:var(--surface);border-top:1px solid var(--border);padding:14px 16px;flex-shrink:0}
+.p-lbl{font-size:10px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;font-family:'Space Mono',monospace}
+.room-bar{background:var(--surface2);border:1px dashed var(--border);border-radius:12px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px}
+.room-code{font-family:'Space Mono',monospace;font-size:22px;font-weight:700;letter-spacing:4px;color:var(--accent);flex:1;text-align:center}
+.cpbtn{background:rgba(59,130,246,.15);border:1px solid var(--accent);border-radius:8px;padding:6px 10px;color:var(--accent);font-size:12px;cursor:pointer;font-family:'Noto Sans SC',sans-serif;transition:all .2s;white-space:nowrap}
+.cpbtn:hover{background:rgba(59,130,246,.25)}
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ccard{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:14px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.ccard:hover{border-color:var(--accent);transform:translateY(-1px)}
+.ccard .ca{font-size:26px;display:block;margin-bottom:6px}
+.ccard .cn{font-size:14px;font-weight:700;margin-bottom:3px}
+.ccard .cs{font-size:11px}
+.ccard .ct{font-size:10px;color:var(--text3);font-family:'Space Mono',monospace;margin-top:4px}
+.odot{position:absolute;top:10px;right:10px;width:8px;height:8px;border-radius:50%}
+.odot.on{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
+.odot.off{background:var(--text3)}
+.empty{text-align:center;color:var(--text3);font-size:13px;padding:16px 0;grid-column:1/-1;line-height:1.7}
 
-.setup-card {
-  width:100%; max-width:380px;
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:24px;
-  padding:36px 28px;
-  box-shadow:0 0 60px rgba(59,130,246,0.08);
-}
+/* ── CHILD ── */
+#s-child{align-items:center;justify-content:center;padding:24px}
+.cu{width:100%;max-width:340px;text-align:center}
+.ch{margin-bottom:28px}
+.cava{font-size:68px;display:block;margin-bottom:12px;animation:float 3s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.cgreet{font-size:22px;font-weight:700;margin-bottom:6px}
+.croom{font-size:11px;color:var(--text3);font-family:'Space Mono',monospace;letter-spacing:2px}
+.scard{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:24px 20px;margin-bottom:16px;box-shadow:0 0 40px rgba(59,130,246,.06)}
+.srow{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px}
+.sind{width:12px;height:12px;border-radius:50%;transition:all .3s}
+.sind.on{background:var(--green);box-shadow:0 0 12px var(--green);animation:pulse 2s infinite}
+.sind.off{background:var(--text3)}
+.slbl{font-size:15px;font-weight:500}
+.locbox{background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:16px;font-size:11px;color:var(--text2);line-height:1.7;font-family:'Space Mono',monospace;min-height:48px;display:flex;align-items:center;justify-content:center;text-align:center}
+.bbtn{width:100%;border:none;border-radius:14px;padding:16px;font-size:16px;font-weight:700;font-family:'Noto Sans SC',sans-serif;cursor:pointer;transition:all .2s}
+.bbtn.on{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 4px 20px rgba(16,185,129,.3)}
+.bbtn.off{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 4px 20px rgba(59,130,246,.3)}
+.notice{font-size:12px;color:var(--text3);line-height:1.8;padding:0 8px}
+.notice b{color:var(--text2)}
 
-.logo { text-align:center; margin-bottom:28px; }
-.logo-icon {
-  width:72px; height:72px;
-  background:linear-gradient(135deg, var(--accent), var(--accent2));
-  border-radius:20px;
-  display:flex; align-items:center; justify-content:center;
-  font-size:32px; margin:0 auto 12px;
-  box-shadow:0 0 30px rgba(59,130,246,0.3);
-}
-.logo h1 {
-  font-size:22px; font-weight:700; letter-spacing:2px;
-  background:linear-gradient(135deg,#fff,var(--accent2));
-  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-}
-.logo p { font-size:12px; color:var(--text3); margin-top:4px; font-family:'Space Mono',monospace; }
+/* ── TOAST ── */
+.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-100px);background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 18px;font-size:13px;z-index:9999;transition:transform .3s;box-shadow:0 4px 24px rgba(0,0,0,.4);white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:var(--green);color:var(--green)}
+.toast.err{border-color:var(--red);color:var(--red)}
+.toast.info{border-color:var(--accent);color:var(--accent)}
 
-.field-label {
-  display:block; font-size:11px; color:var(--text2);
-  letter-spacing:1px; text-transform:uppercase; margin-bottom:8px;
-}
-
-.role-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:20px; }
-
-.role-btn {
-  background:var(--surface2); border:1px solid var(--border);
-  border-radius:12px; padding:14px 6px; cursor:pointer;
-  text-align:center; transition:all .2s; color:var(--text2);
-  font-family:'Noto Sans SC',sans-serif; user-select:none;
-}
-.role-btn .e { font-size:26px; display:block; margin-bottom:6px; }
-.role-btn .n { font-size:11px; line-height:1.3; }
-.role-btn.selected, .role-btn:hover {
-  border-color:var(--accent); background:rgba(59,130,246,0.12); color:var(--text);
-}
-
-.text-input {
-  width:100%; background:var(--surface2); border:1px solid var(--border);
-  border-radius:12px; padding:14px 16px; color:var(--text); font-size:15px;
-  font-family:'Space Mono',monospace; letter-spacing:3px; text-align:center;
-  outline:none; transition:border-color .2s; margin-bottom:16px;
-}
-.text-input:focus { border-color:var(--accent); }
-.text-input::placeholder { letter-spacing:1px; color:var(--text3); font-family:'Noto Sans SC',sans-serif; }
-
-.name-input {
-  font-family:'Noto Sans SC',sans-serif; letter-spacing:0; text-align:left;
-}
-
-.primary-btn {
-  width:100%; background:linear-gradient(135deg,var(--accent),var(--accent2));
-  border:none; border-radius:12px; padding:16px;
-  color:#fff; font-size:16px; font-weight:700;
-  font-family:'Noto Sans SC',sans-serif; cursor:pointer;
-  transition:opacity .2s,transform .1s;
-  box-shadow:0 4px 20px rgba(59,130,246,0.3);
-}
-.primary-btn:active { transform:scale(0.98); }
-.primary-btn:disabled { opacity:0.5; cursor:not-allowed; }
-
-.hint { font-size:12px; color:var(--text3); text-align:center; margin-top:14px; line-height:1.7; }
-.hint b { color:var(--text2); }
-
-/* ─── TOP BAR ─── */
-.top-bar {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:12px 16px;
-  background:var(--surface); border-bottom:1px solid var(--border);
-  flex-shrink:0; gap:8px;
-}
-.top-bar-left { display:flex; align-items:center; gap:10px; min-width:0; }
-.top-bar-title { font-size:15px; font-weight:700; white-space:nowrap; }
-.top-bar-sub { font-size:11px; color:var(--text3); font-family:'Space Mono',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px; }
-.conn-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-.conn-dot.online { background:var(--green); box-shadow:0 0 8px var(--green); animation:pulse 2s infinite; }
-.conn-dot.offline { background:var(--red); }
-.conn-dot.connecting { background:var(--amber); animation:pulse 1s infinite; }
-
-@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(.8)} }
-
-.icon-btn {
-  background:none; border:1px solid var(--border); border-radius:8px;
-  padding:6px 10px; color:var(--text2); font-size:13px; cursor:pointer;
-  font-family:'Noto Sans SC',sans-serif; transition:all .2s; white-space:nowrap; flex-shrink:0;
-}
-.icon-btn:hover { border-color:var(--accent); color:var(--text); }
-.icon-btn.danger:hover { border-color:var(--red); color:var(--red); }
-
-/* ─── PARENT MAP ─── */
-#screen-parent { }
-
-.map-wrap {
-  flex:1; position:relative; overflow:hidden;
-  background:var(--surface2); min-height:0;
-}
-
-#map { width:100%; height:100%; min-height:300px; }
-
-.leaflet-container { background:#0d1520 !important; }
-.leaflet-control-zoom { display:none; }
-
-.map-top-pills {
-  position:absolute; top:10px; left:50%; transform:translateX(-50%);
-  z-index:999; display:flex; gap:6px; pointer-events:none;
-}
-.map-pill {
-  background:rgba(10,14,26,0.88); border:1px solid var(--border);
-  border-radius:20px; padding:5px 12px; font-size:11px; color:var(--text2);
-  backdrop-filter:blur(8px); white-space:nowrap;
-}
-.map-pill.live { border-color:var(--green); color:var(--green); }
-
-.map-fab {
-  position:absolute; bottom:14px; right:14px; z-index:999;
-  background:var(--surface); border:1px solid var(--border);
-  border-radius:12px; padding:10px 14px;
-  color:var(--text); font-size:13px; cursor:pointer;
-  display:flex; align-items:center; gap:6px;
-  font-family:'Noto Sans SC',sans-serif;
-  box-shadow:0 4px 20px rgba(0,0,0,0.3); transition:all .2s;
-}
-.map-fab:hover { border-color:var(--accent); }
-
-/* ─── CHILDREN PANEL ─── */
-.panel {
-  background:var(--surface); border-top:1px solid var(--border);
-  padding:14px 16px; flex-shrink:0;
-}
-.panel-label { font-size:10px; color:var(--text3); letter-spacing:2px; text-transform:uppercase; margin-bottom:10px; font-family:'Space Mono',monospace; }
-
-.child-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-
-.child-card {
-  background:var(--surface2); border:1px solid var(--border);
-  border-radius:14px; padding:14px; cursor:pointer;
-  transition:all .2s; position:relative; overflow:hidden;
-}
-.child-card:hover { border-color:var(--accent); transform:translateY(-1px); }
-.child-card .ca { font-size:26px; display:block; margin-bottom:6px; }
-.child-card .cn { font-size:14px; font-weight:700; margin-bottom:3px; }
-.child-card .cs { font-size:11px; }
-.child-card .ct { font-size:10px; color:var(--text3); font-family:'Space Mono',monospace; margin-top:4px; }
-.online-dot {
-  position:absolute; top:10px; right:10px;
-  width:8px; height:8px; border-radius:50%;
-}
-.online-dot.on { background:var(--green); box-shadow:0 0 6px var(--green); animation:pulse 2s infinite; }
-.online-dot.off { background:var(--text3); }
-
-.empty-state { text-align:center; color:var(--text3); font-size:13px; padding:16px 0; grid-column:1/-1; line-height:1.7; }
-
-/* Room code share box */
-.room-share-box {
-  background:var(--surface2); border:1px dashed var(--border);
-  border-radius:12px; padding:12px 14px; margin-bottom:12px;
-  display:flex; align-items:center; gap:10px;
-}
-.room-code-big {
-  font-family:'Space Mono',monospace; font-size:20px; font-weight:700;
-  letter-spacing:4px; color:var(--accent); flex:1; text-align:center;
-}
-.copy-btn {
-  background:rgba(59,130,246,0.15); border:1px solid var(--accent);
-  border-radius:8px; padding:6px 10px; color:var(--accent);
-  font-size:12px; cursor:pointer; font-family:'Noto Sans SC',sans-serif;
-  transition:all .2s; white-space:nowrap;
-}
-.copy-btn:hover { background:rgba(59,130,246,0.25); }
-
-/* ─── CHILD SCREEN ─── */
-#screen-child {
-  align-items:center; justify-content:center; padding:24px;
-}
-
-.child-ui { width:100%; max-width:340px; text-align:center; }
-
-.child-hero { margin-bottom:28px; }
-.child-avatar-big {
-  font-size:68px; display:block; margin-bottom:12px;
-  animation:float 3s ease-in-out infinite;
-}
-@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-
-.child-greeting { font-size:22px; font-weight:700; margin-bottom:6px; }
-.child-room-label { font-size:11px; color:var(--text3); font-family:'Space Mono',monospace; letter-spacing:2px; }
-
-.sharing-card {
-  background:var(--surface); border:1px solid var(--border);
-  border-radius:20px; padding:24px 20px; margin-bottom:16px;
-  box-shadow:0 0 40px rgba(59,130,246,0.06);
-}
-.sharing-row {
-  display:flex; align-items:center; justify-content:center;
-  gap:10px; margin-bottom:16px;
-}
-.sharing-indicator {
-  width:12px; height:12px; border-radius:50%;
-  transition:all .3s;
-}
-.sharing-indicator.on { background:var(--green); box-shadow:0 0 12px var(--green); animation:pulse 2s infinite; }
-.sharing-indicator.off { background:var(--text3); }
-.sharing-label { font-size:15px; font-weight:500; }
-
-.loc-box {
-  background:var(--surface2); border-radius:10px; padding:12px;
-  margin-bottom:16px; font-size:11px; color:var(--text2);
-  line-height:1.7; font-family:'Space Mono',monospace; min-height:48px;
-  display:flex; align-items:center; justify-content:center; text-align:center;
-}
-
-.big-toggle {
-  width:100%; border:none; border-radius:14px; padding:16px;
-  font-size:16px; font-weight:700; font-family:'Noto Sans SC',sans-serif;
-  cursor:pointer; transition:all .2s;
-}
-.big-toggle.on { background:linear-gradient(135deg,#10b981,#059669); color:#fff; box-shadow:0 4px 20px rgba(16,185,129,0.3); }
-.big-toggle.off { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; box-shadow:0 4px 20px rgba(59,130,246,0.3); }
-
-.notice { font-size:12px; color:var(--text3); line-height:1.8; padding:0 8px; }
-.notice b { color:var(--text2); }
-
-/* ─── TOAST ─── */
-.toast {
-  position:fixed; top:16px; left:50%;
-  transform:translateX(-50%) translateY(-80px);
-  background:var(--surface); border:1px solid var(--border);
-  border-radius:12px; padding:10px 18px; font-size:13px;
-  z-index:9999; transition:transform .3s ease;
-  box-shadow:0 4px 24px rgba(0,0,0,0.4); white-space:nowrap; max-width:90vw;
-  text-overflow:ellipsis; overflow:hidden;
-}
-.toast.show { transform:translateX(-50%) translateY(0); }
-.toast.success { border-color:var(--green); color:var(--green); }
-.toast.error { border-color:var(--red); color:var(--red); }
-.toast.info { border-color:var(--accent); color:var(--accent); }
-
-/* ─── FIREBASE SETUP MODAL ─── */
-.modal-overlay {
-  position:fixed; inset:0; background:rgba(0,0,0,0.7);
-  z-index:2000; display:flex; align-items:center; justify-content:center;
-  padding:20px; backdrop-filter:blur(4px);
-}
-.modal {
-  background:var(--surface); border:1px solid var(--border);
-  border-radius:20px; padding:28px 24px; width:100%; max-width:420px;
-  max-height:90vh; overflow-y:auto;
-}
-.modal h2 { font-size:18px; margin-bottom:8px; }
-.modal p { font-size:13px; color:var(--text2); margin-bottom:16px; line-height:1.7; }
-.modal-step {
-  background:var(--surface2); border-radius:12px;
-  padding:14px; margin-bottom:12px; font-size:13px; line-height:1.7;
-}
-.modal-step .step-num {
-  display:inline-flex; align-items:center; justify-content:center;
-  width:22px; height:22px; background:var(--accent);
-  border-radius:50%; font-size:11px; font-weight:700; margin-right:8px;
-}
-.modal-step code {
-  background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.3);
-  border-radius:4px; padding:1px 6px; font-family:'Space Mono',monospace;
-  font-size:11px; color:var(--accent2); word-break:break-all;
-}
-.config-input {
-  width:100%; background:var(--surface2); border:1px solid var(--border);
-  border-radius:10px; padding:12px; color:var(--text); font-size:12px;
-  font-family:'Space Mono',monospace; outline:none; transition:border-color .2s;
-  resize:vertical; min-height:100px; margin-bottom:12px;
-}
-.config-input:focus { border-color:var(--accent); }
-.modal-btns { display:flex; gap:8px; }
-.modal-btns .secondary-btn {
-  flex:1; background:var(--surface2); border:1px solid var(--border);
-  border-radius:10px; padding:12px; color:var(--text2);
-  font-family:'Noto Sans SC',sans-serif; cursor:pointer; font-size:14px;
-  transition:all .2s;
-}
-.modal-btns .secondary-btn:hover { border-color:var(--accent); color:var(--text); }
-
-@media(max-width:380px) {
-  .child-grid { grid-template-columns:1fr; }
-  .setup-card { padding:24px 16px; }
-}
+@media(max-width:380px){.cgrid{grid-template-columns:1fr}.card{padding:24px 16px}}
 </style>
 </head>
 <body>
@@ -365,205 +155,245 @@ body::before {
 <div class="toast" id="toast"></div>
 
 <!-- ══════ LOADING ══════ -->
-<div class="screen active" id="screen-loading">
-  <div class="loading-spinner"></div>
-  <p style="color:var(--text3);font-size:14px;">正在连接…</p>
+<div class="screen active" id="s-loading">
+  <div class="load-box">
+    <div class="spinner" id="spin"></div>
+    <div class="load-title">家庭守护</div>
+    <div class="load-sub" id="l-msg">正在加载组件…</div>
+    <div class="load-progress" id="l-prog"></div>
+    <div class="err-box" id="l-err">
+      <b>⚠️ 部分组件加载失败</b>
+      <p>可能是网络问题导致地图或Firebase无法加载。<br>您可以：</p>
+      <div class="err-actions">
+        <button class="xbtn accent" onclick="location.reload()">🔄 重新加载</button>
+        <button class="xbtn" onclick="forceSetup()">跳过，继续使用</button>
+      </div>
+    </div>
+  </div>
 </div>
 
-<!-- ══════ FIREBASE CONFIG MODAL ══════ -->
-<div class="modal-overlay" id="firebase-modal" style="display:none;">
+<!-- ══════ FIREBASE CONFIG OVERLAY ══════ -->
+<div class="overlay" id="cfg-ov">
   <div class="modal">
-    <h2>⚙️ 配置 Firebase</h2>
-    <p>首次使用需要配置 Firebase 实时数据库。只需操作一次，配置后自动保存。</p>
+    <h2>⚙️ 配置 Firebase 实时数据库</h2>
+    <p class="desc">跨设备位置同步需要 Firebase。只需配置一次，完全免费。</p>
 
-    <div class="modal-step">
-      <span class="step-num">1</span>前往 <code>console.firebase.google.com</code>，点击"添加项目"，创建一个免费项目（约2分钟）
-    </div>
-    <div class="modal-step">
-      <span class="step-num">2</span>进入项目 → <b>构建</b> → <b>Realtime Database</b> → 点击"创建数据库"，选择"以测试模式启动"
-    </div>
-    <div class="modal-step">
-      <span class="step-num">3</span>点击左上角"项目概览" → 点击 <code>&lt;/&gt;</code> 图标 → 注册网页应用 → 复制 <code>firebaseConfig</code> 对象内容（花括号内的部分）粘贴到下方
-    </div>
+    <div class="step"><span class="step-n">1</span><div>访问 <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a>，用 Google 账号登录，点击「添加项目」（取消 Google Analytics 可加快创建）</div></div>
+    <div class="step"><span class="step-n">2</span><div>进入项目 → 左侧菜单「构建」→「<b>Realtime Database</b>」→ 点击「创建数据库」→ 位置选<code>asia-southeast1</code>（新加坡，国内最快）→「以<b>测试模式</b>启动」</div></div>
+    <div class="step"><span class="step-n">3</span><div>返回项目首页 → 点击「<code>&lt;/&gt;</code>」网页图标 → 注册应用（随便填名称）→ 在弹出代码里找到 <code>const firebaseConfig = {…}</code>，把花括号 <code>{…}</code> 内的内容全部复制到下方</div></div>
 
-    <label class="field-label" style="margin-top:4px;">粘贴 firebaseConfig 内容</label>
-    <textarea class="config-input" id="firebase-config-input" placeholder='{
-  "apiKey": "AIza...",
-  "authDomain": "xxx.firebaseapp.com",
-  "databaseURL": "https://xxx-default-rtdb.firebaseio.com",
-  "projectId": "xxx",
-  "storageBucket": "xxx.appspot.com",
-  "messagingSenderId": "...",
-  "appId": "..."
+    <span class="lbl" style="margin-top:4px">粘贴 firebaseConfig 内容</span>
+    <textarea class="cfg-ta" id="cfg-ta" placeholder='{
+  "apiKey": "AIzaSy...",
+  "authDomain": "your-app.firebaseapp.com",
+  "databaseURL": "https://your-app-default-rtdb.asia-southeast1.firebasedatabase.app",
+  "projectId": "your-app",
+  "storageBucket": "your-app.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "1:123456789:web:abc..."
 }'></textarea>
 
     <div class="modal-btns">
-      <button class="secondary-btn" onclick="useDemoMode()">使用演示模式（仅同设备）</button>
-      <button class="primary-btn" style="flex:1" onclick="saveFirebaseConfig()">保存并连接</button>
+      <button class="sec-btn" onclick="useDemoMode()">仅本机演示</button>
+      <button class="primary-btn" style="flex:1.5;border-radius:10px;padding:12px;font-size:14px" onclick="applyFirebase()">连接 Firebase ✓</button>
     </div>
-    <p style="margin-top:12px;font-size:11px;color:var(--text3);text-align:center;">
-      Firebase 免费套餐完全够用 · 数据加密传输 · 只有知道房间码的人才能看到位置
-    </p>
+    <p class="modal-note">免费配额：每月 1GB 流量 / 10万次同步，家庭使用绰绰有余<br>位置数据只有知道房间码的人才能访问</p>
   </div>
 </div>
 
 <!-- ══════ SETUP ══════ -->
-<div class="screen" id="screen-setup">
-  <div class="setup-card">
+<div class="screen" id="s-setup">
+  <div style="display:flex;align-items:center;justify-content:center;flex:1;padding:24px">
+  <div class="card">
     <div class="logo">
       <div class="logo-icon">🛡️</div>
       <h1>家庭守护</h1>
       <p>FAMILY TRACKER · ONLINE</p>
     </div>
 
-    <label class="field-label">我的身份</label>
-    <div class="role-grid" style="margin-bottom:20px;">
-      <div class="role-btn" onclick="selectRole('parent',this)" data-role="parent">
-        <span class="e">👨‍👩‍👧</span><span class="n">家长</span>
-      </div>
-      <div class="role-btn" onclick="selectRole('child1',this)" data-role="child1">
-        <span class="e">🧒</span><span class="n">大宝<br>9岁</span>
-      </div>
-      <div class="role-btn" onclick="selectRole('child2',this)" data-role="child2">
-        <span class="e">👦</span><span class="n">二宝<br>11岁</span>
-      </div>
+    <div class="fb-status-bar" id="fb-bar">
+      <span id="fb-bar-text"></span>
     </div>
 
-    <div id="name-field" style="display:none;margin-bottom:16px;">
-      <label class="field-label">昵称（可选）</label>
-      <input class="text-input name-input" id="nickname-input" placeholder="例如：爸爸 / 大宝" maxlength="10">
+    <span class="lbl">我的身份</span>
+    <div class="role-grid">
+      <div class="role-btn" onclick="pickRole('parent',this)"><span class="e">👨‍👩‍👧</span><span class="n">家长</span></div>
+      <div class="role-btn" onclick="pickRole('child1',this)"><span class="e">🧒</span><span class="n">大宝<br>9岁</span></div>
+      <div class="role-btn" onclick="pickRole('child2',this)"><span class="e">👦</span><span class="n">二宝<br>11岁</span></div>
     </div>
 
-    <label class="field-label">家庭房间码</label>
-    <input class="text-input" id="room-input" placeholder="家长先创建，孩子输入相同码" maxlength="8">
+    <div id="nick-row" style="display:none">
+      <span class="lbl">昵称（可选）</span>
+      <input class="inp ni" id="nick" placeholder="例如：大宝" maxlength="8" style="margin-bottom:16px">
+    </div>
 
-    <button class="primary-btn" id="join-btn" onclick="joinRoom()">进入家庭房间 →</button>
+    <span class="lbl">家庭房间码</span>
+    <input class="inp" id="room-inp" placeholder="家长先创建，孩子输入相同码" maxlength="8">
 
-    <p class="hint">
-      <b>家长：</b>不填房间码直接进入，系统自动创建<br>
-      <b>孩子：</b>输入家长显示的房间码
-    </p>
+    <button class="primary-btn" onclick="joinRoom()">进入家庭房间 →</button>
 
-    <button class="icon-btn" style="margin:14px auto 0;display:block;font-size:11px;" onclick="showFirebaseModal()">⚙️ Firebase 配置</button>
+    <p class="hint"><b>家长：</b>不填房间码直接进入，系统自动生成<br><b>孩子：</b>输入家长发来的6位房间码</p>
+    <button class="link-btn" onclick="openCfg()">⚙️ Firebase 数据库设置</button>
+  </div>
   </div>
 </div>
 
 <!-- ══════ PARENT ══════ -->
-<div class="screen" id="screen-parent">
+<div class="screen" id="s-parent">
   <div class="top-bar">
-    <div class="top-bar-left">
-      <div class="conn-dot connecting" id="conn-dot"></div>
+    <div class="tbl">
+      <div class="dot wait" id="conn-dot"></div>
       <div>
-        <div class="top-bar-title">家庭守护 · 家长</div>
-        <div class="top-bar-sub" id="parent-room-label">--</div>
+        <div class="tbt">家庭守护 · 家长</div>
+        <div class="tbs" id="p-room">--</div>
       </div>
     </div>
-    <div style="display:flex;gap:6px;">
-      <button class="icon-btn" onclick="showFirebaseModal()">⚙️</button>
-      <button class="icon-btn danger" onclick="exitRoom()">退出</button>
+    <div style="display:flex;gap:6px">
+      <button class="ibtn" onclick="openCfg()">⚙️</button>
+      <button class="ibtn red" onclick="exitRoom()">退出</button>
     </div>
   </div>
 
   <div class="map-wrap">
     <div id="map"></div>
-    <div class="map-top-pills">
-      <div class="map-pill" id="online-pill">等待孩子上线…</div>
+    <div class="map-pills">
+      <div class="pill" id="map-pill">等待孩子上线…</div>
     </div>
-    <button class="map-fab" onclick="fitAllMarkers()">📍 显示全部</button>
+    <button class="fab" onclick="fitAll()">📍 显示全部</button>
   </div>
 
   <div class="panel">
-    <div class="room-share-box">
-      <span style="font-size:12px;color:var(--text2);">房间码：</span>
-      <span class="room-code-big" id="room-code-display">------</span>
-      <button class="copy-btn" onclick="copyRoomCode()">复制</button>
+    <div class="room-bar">
+      <span style="font-size:12px;color:var(--text2);white-space:nowrap">房间码：</span>
+      <span class="room-code" id="rc-disp">------</span>
+      <button class="cpbtn" onclick="copyCode()">📋 复制</button>
     </div>
-    <div class="panel-label">孩子实时位置</div>
-    <div class="child-grid" id="child-grid">
-      <div class="empty-state">孩子APP中开启位置共享后<br>即可在此看到位置 📍</div>
+    <div class="p-lbl">孩子实时位置</div>
+    <div class="cgrid" id="cgrid">
+      <div class="empty">孩子在APP中开启位置共享<br>即可在此实时看到位置 📍</div>
     </div>
   </div>
 </div>
 
 <!-- ══════ CHILD ══════ -->
-<div class="screen" id="screen-child">
-  <div class="child-ui">
-    <div class="child-hero">
-      <span class="child-avatar-big" id="c-avatar">🧒</span>
-      <div class="child-greeting" id="c-greeting">你好！</div>
-      <div class="child-room-label" id="c-room">ROOM: ------</div>
+<div class="screen" id="s-child">
+  <div class="cu">
+    <div class="ch">
+      <span class="cava" id="c-ava">🧒</span>
+      <div class="cgreet" id="c-greet">你好！</div>
+      <div class="croom" id="c-room">ROOM: ------</div>
     </div>
-
-    <div class="sharing-card">
-      <div class="sharing-row">
-        <div class="sharing-indicator off" id="s-dot"></div>
-        <span class="sharing-label" id="s-label">未开启位置共享</span>
+    <div class="scard">
+      <div class="srow">
+        <div class="sind off" id="s-dot"></div>
+        <span class="slbl" id="s-lbl">未开启位置共享</span>
       </div>
-      <div class="loc-box" id="s-loc">点击下方按钮开始分享位置</div>
-      <button class="big-toggle off" id="s-btn" onclick="toggleSharing()">
-        🔴 开始分享我的位置
-      </button>
+      <div class="locbox" id="s-loc">点击下方按钮开始分享位置</div>
+      <button class="bbtn off" id="s-btn" onclick="toggleShare()">🔴 开始分享我的位置</button>
     </div>
-
-    <p class="notice">
-      <b>爸爸/妈妈可以实时看到你的位置</b><br>
-      外出时请保持开启，平安回家关闭 ❤️
-    </p>
+    <p class="notice"><b>爸爸/妈妈可以实时看到你的位置</b><br>外出时请保持开启，到家后关闭 ❤️</p>
     <br>
-    <button class="icon-btn danger" style="margin:0 auto;display:block;" onclick="exitRoom()">退出</button>
+    <button class="ibtn red" style="margin:0 auto;display:block" onclick="exitRoom()">退出</button>
   </div>
 </div>
 
+<!-- Firebase compat SDK (no ES modules, works with file://) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <!-- Leaflet -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 
-<!-- Firebase SDK -->
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getDatabase, ref, set, onValue, remove, onDisconnect, serverTimestamp }
-  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+<script>
+// ══════════════════════════════════════════════════════
+//  BOOT — detect what loaded and show appropriate screen
+// ══════════════════════════════════════════════════════
+var LEAF_OK = (typeof L !== 'undefined');
+var FB_OK   = (typeof firebase !== 'undefined');
+var DB      = null;
+var DEMO    = false;
+var fbApp   = null;
+var demoTimer = null;
 
-// ═══════════════════════════════════════
-//  GLOBALS
-// ═══════════════════════════════════════
-window._fb = { app:null, db:null };
-window._state = {
-  role: null,
-  room: null,
-  nickname: null,
-  sharing: false,
-  watchId: null,
-  map: null,
-  markers: {},
-  listeners: []
+var ST = {
+  role:null, room:null, nick:null,
+  sharing:false, watchId:null,
+  map:null, markers:{}, listeners:[],
+  cdata:{}
 };
 
-const CHILD_CFG = {
-  child1: { name:'大宝', emoji:'🧒', color:'#f59e0b', age:'9岁' },
-  child2: { name:'二宝', emoji:'👦', color:'#3b82f6', age:'11岁' }
+var CCFG = {
+  child1:{name:'大宝',emoji:'🧒',color:'#f59e0b',age:'9岁'},
+  child2:{name:'二宝',emoji:'👦',color:'#3b82f6',age:'11岁'}
 };
 
-// ═══════════════════════════════════════
-//  FIREBASE INIT
-// ═══════════════════════════════════════
-function loadFirebaseConfig() {
-  const raw = localStorage.getItem('fb_config');
-  if (!raw) return null;
-  try { return JSON.parse(raw); } catch(e) { return null; }
+function boot() {
+  var saved = localStorage.getItem('fb_config');
+
+  if (!LEAF_OK) {
+    // Leaflet didn't load — show error but still allow usage
+    console.warn('Leaflet not loaded');
+  }
+
+  if (saved && saved !== 'DEMO' && FB_OK) {
+    try {
+      var cfg = JSON.parse(saved);
+      initFB(cfg);
+    } catch(e) { localStorage.removeItem('fb_config'); }
+  } else if (saved === 'DEMO') {
+    DEMO = true;
+  }
+
+  updateFBBar();
+  showScreen('s-setup');
+
+  if (!saved && FB_OK) {
+    setTimeout(openCfg, 600);
+  }
 }
 
-function initFirebase(config) {
+// Give scripts 100ms to execute, then boot
+window.addEventListener('load', function(){
+  // Re-check after load event
+  LEAF_OK = (typeof L !== 'undefined');
+  FB_OK   = (typeof firebase !== 'undefined');
+  boot();
+});
+
+// Fallback: if load event doesn't fire quickly (file:// quirk)
+setTimeout(function(){
+  if(document.getElementById('s-loading').classList.contains('active')){
+    LEAF_OK = (typeof L !== 'undefined');
+    FB_OK   = (typeof firebase !== 'undefined');
+    boot();
+  }
+}, 5000);
+
+// Show error after 12 seconds if still on loading screen
+setTimeout(function(){
+  if(document.getElementById('s-loading').classList.contains('active')){
+    document.getElementById('l-err').style.display='block';
+    document.getElementById('l-msg').textContent='加载超时';
+    document.getElementById('spin').style.display='none';
+  }
+}, 12000);
+
+function forceSetup() {
+  LEAF_OK = (typeof L !== 'undefined');
+  FB_OK   = (typeof firebase !== 'undefined');
+  boot();
+}
+window.forceSetup = forceSetup;
+
+// ══════════════════════════════════════════════════════
+//  FIREBASE
+// ══════════════════════════════════════════════════════
+function initFB(cfg) {
   try {
-    if (window._fb.app) return true;
-    window._fb.app = initializeApp(config, 'family-tracker-' + Date.now());
-    window._fb.db = getDatabase(window._fb.app);
-    window._fbRef = ref;
-    window._fbSet = set;
-    window._fbOnValue = onValue;
-    window._fbRemove = remove;
-    window._fbOnDisconnect = onDisconnect;
-    window._fbServerTimestamp = serverTimestamp;
+    if (fbApp) { try{ fbApp.delete(); }catch(e){} fbApp=null; DB=null; }
+    var name = 'ft-' + Date.now();
+    fbApp = firebase.initializeApp(cfg, name);
+    DB = fbApp.database();
+    DEMO = false;
     return true;
   } catch(e) {
     console.error(e);
@@ -571,404 +401,326 @@ function initFirebase(config) {
   }
 }
 
-window.saveFirebaseConfig = function() {
-  const raw = document.getElementById('firebase-config-input').value.trim();
-  let cfg;
+function applyFirebase() {
+  if (!FB_OK) { toast('Firebase SDK 未加载，请检查网络后刷新页面', 'err'); return; }
+  var raw = document.getElementById('cfg-ta').value.trim();
+  if (!raw) { toast('请粘贴 firebaseConfig 内容', 'err'); return; }
+  var cfg;
   try {
-    // Support pasting with or without surrounding object literal
-    const cleaned = raw.startsWith('{') ? raw : `{${raw}}`;
-    cfg = JSON.parse(cleaned);
-  } catch(e) {
-    showToast('JSON格式有误，请重新粘贴', 'error');
-    return;
-  }
-  if (!cfg.databaseURL) {
-    showToast('缺少 databaseURL，请确保已创建 Realtime Database', 'error');
-    return;
-  }
-  localStorage.setItem('fb_config', JSON.stringify(cfg));
-  if (initFirebase(cfg)) {
-    document.getElementById('firebase-modal').style.display = 'none';
-    showToast('Firebase 连接成功！', 'success');
+    var c = raw.startsWith('{') ? raw : ('{'+raw+'}');
+    cfg = JSON.parse(c);
+  } catch(e) { toast('格式错误，请重新粘贴完整内容', 'err'); return; }
+  if (!cfg.databaseURL) { toast('缺少 databaseURL，请确认已创建 Realtime Database', 'err'); return; }
+  if (initFB(cfg)) {
+    localStorage.setItem('fb_config', JSON.stringify(cfg));
+    closeCfg();
+    updateFBBar();
+    toast('Firebase 连接成功！', 'ok');
   } else {
-    showToast('连接失败，请检查配置', 'error');
+    toast('连接失败，请检查配置', 'err');
   }
-};
+}
+window.applyFirebase = applyFirebase;
 
-window.useDemoMode = function() {
+function useDemoMode() {
+  DEMO = true; DB = null;
   localStorage.setItem('fb_config', 'DEMO');
-  document.getElementById('firebase-modal').style.display = 'none';
-  showToast('已切换到演示模式', 'info');
-};
+  closeCfg();
+  updateFBBar();
+  toast('已切换到本机演示模式', 'info');
+}
+window.useDemoMode = useDemoMode;
 
-window.showFirebaseModal = function() {
-  document.getElementById('firebase-modal').style.display = 'flex';
-};
-
-// ═══════════════════════════════════════
-//  BOOT
-// ═══════════════════════════════════════
-const savedCfg = loadFirebaseConfig();
-if (!savedCfg) {
-  // First time
-  showScreen('screen-setup');
-  setTimeout(() => {
-    document.getElementById('firebase-modal').style.display = 'flex';
-  }, 500);
-} else if (savedCfg === 'DEMO') {
-  showScreen('screen-setup');
-} else {
-  const ok = initFirebase(savedCfg);
-  showScreen('screen-setup');
-  if (!ok) showToast('Firebase配置有误，请重新设置', 'error');
+function updateFBBar() {
+  var bar = document.getElementById('fb-bar');
+  var txt = document.getElementById('fb-bar-text');
+  if (DB && !DEMO) {
+    bar.className = 'fb-status-bar show';
+    txt.textContent = '✅ Firebase 已连接，跨设备实时同步';
+  } else if (DEMO) {
+    bar.className = 'fb-status-bar show warn';
+    txt.textContent = '⚠️ 演示模式：仅同设备浏览器标签页有效';
+  } else if (FB_OK) {
+    bar.className = 'fb-status-bar show warn';
+    txt.textContent = '⚠️ 未配置 Firebase，请点击下方设置';
+  } else {
+    bar.className = 'fb-status-bar show warn';
+    txt.textContent = '⚠️ Firebase SDK 加载失败，请检查网络';
+  }
 }
 
-// ═══════════════════════════════════════
-//  UI HELPERS
-// ═══════════════════════════════════════
+// ══════════════════════════════════════════════════════
+//  UI
+// ══════════════════════════════════════════════════════
 function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
   document.getElementById(id).classList.add('active');
 }
-window.showScreen = showScreen;
 
-function showToast(msg, type='info') {
-  const t = document.getElementById('toast');
+function toast(msg, type) {
+  var t = document.getElementById('toast');
   t.textContent = msg;
-  t.className = `toast ${type} show`;
-  clearTimeout(window._toastTimer);
-  window._toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+  t.className = 'toast '+(type||'info')+' show';
+  clearTimeout(window._tt);
+  window._tt = setTimeout(function(){ t.classList.remove('show'); }, 3200);
 }
-window.showToast = showToast;
 
-window.selectRole = function(role, el) {
-  window._state.role = role;
-  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
-  el.classList.add('selected');
-  document.getElementById('name-field').style.display = role !== 'parent' ? 'block' : 'none';
-};
+function openCfg() { document.getElementById('cfg-ov').classList.add('show'); }
+function closeCfg() { document.getElementById('cfg-ov').classList.remove('show'); }
+window.openCfg = openCfg;
 
-window.copyRoomCode = function() {
-  const code = window._state.room;
-  if (!code) return;
-  navigator.clipboard?.writeText(code).then(() => showToast('房间码已复制！', 'success'))
-    .catch(() => showToast(`房间码: ${code}`, 'info'));
-};
+function pickRole(role, el) {
+  ST.role = role;
+  document.querySelectorAll('.role-btn').forEach(function(b){ b.classList.remove('sel'); });
+  el.classList.add('sel');
+  document.getElementById('nick-row').style.display = role!=='parent'?'block':'none';
+}
+window.pickRole = pickRole;
 
-// ═══════════════════════════════════════
-//  JOIN ROOM
-// ═══════════════════════════════════════
-window.joinRoom = function() {
-  const { role } = window._state;
-  if (!role) { showToast('请先选择身份', 'error'); return; }
+function copyCode() {
+  var c = ST.room; if(!c) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(c).then(function(){ toast('房间码已复制！', 'ok'); }).catch(function(){ toast('房间码：'+c, 'info'); });
+  } else { toast('房间码：'+c, 'info'); }
+}
+window.copyCode = copyCode;
 
-  let room = document.getElementById('room-input').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
-  const nickname = document.getElementById('nickname-input').value.trim();
-
-  if (role === 'parent') {
+// ══════════════════════════════════════════════════════
+//  JOIN
+// ══════════════════════════════════════════════════════
+function joinRoom() {
+  if (!ST.role) { toast('请先选择身份', 'err'); return; }
+  var room = document.getElementById('room-inp').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+  var nick = document.getElementById('nick').value.trim();
+  if (ST.role === 'parent') {
     if (!room) room = Math.random().toString(36).substring(2,8).toUpperCase();
   } else {
-    if (!room || room.length < 4) { showToast('请输入正确的房间码', 'error'); return; }
+    if (!room || room.length < 4) { toast('请输入正确的房间码（4-8位字母数字）', 'err'); return; }
   }
+  ST.room = room;
+  ST.nick = nick || (CCFG[ST.role] ? CCFG[ST.role].name : '家长');
+  if (ST.role === 'parent') enterParent(); else enterChild();
+}
+window.joinRoom = joinRoom;
 
-  window._state.room = room;
-  window._state.nickname = nickname || CHILD_CFG[role]?.name || '家长';
-
-  if (role === 'parent') enterParent();
-  else enterChild();
-};
-
-// ═══════════════════════════════════════
+// ══════════════════════════════════════════════════════
 //  PARENT
-// ═══════════════════════════════════════
+// ══════════════════════════════════════════════════════
 function enterParent() {
-  const { room } = window._state;
-  document.getElementById('parent-room-label').textContent = `房间: ${room}`;
-  document.getElementById('room-code-display').textContent = room;
-  showScreen('screen-parent');
-  setTimeout(() => { initMap(); listenChildren(); }, 120);
+  document.getElementById('p-room').textContent = '房间: '+ST.room;
+  document.getElementById('rc-disp').textContent = ST.room;
+  showScreen('s-parent');
+  setTimeout(function(){ initMap(); listenKids(); }, 150);
 }
 
 function initMap() {
-  if (window._state.map) { window._state.map.remove(); window._state.map = null; }
-  const map = L.map('map', { center:[31.2304,121.4737], zoom:14, attributionControl:false });
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom:19 }).addTo(map);
-  window._state.map = map;
-  navigator.geolocation?.getCurrentPosition(p => {
-    map.setView([p.coords.latitude, p.coords.longitude], 15);
-  }, ()=>{});
+  if (!LEAF_OK || typeof L === 'undefined') {
+    document.getElementById('map').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:13px;flex-direction:column;gap:8px"><span style="font-size:32px">🗺️</span>地图加载失败<br><small>请检查网络后刷新页面</small></div>';
+    return;
+  }
+  if (ST.map) { try{ ST.map.remove(); }catch(e){} ST.map=null; }
+  var m = L.map('map', {center:[31.2304,121.4737],zoom:14,attributionControl:false});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(m);
+  ST.map = m;
+  navigator.geolocation && navigator.geolocation.getCurrentPosition(function(p){
+    m.setView([p.coords.latitude,p.coords.longitude],15);
+  },function(){});
 }
 
-function makeChildIcon(role) {
-  const c = CHILD_CFG[role];
+function mkIcon(role) {
+  var c = CCFG[role];
   return L.divIcon({
-    html:`<div style="background:${c.color};border:3px solid #fff;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 0 16px ${c.color}88;">${c.emoji}</div>`,
-    className:'', iconSize:[44,44], iconAnchor:[22,22]
+    html:'<div style="background:'+c.color+';border:3px solid #fff;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 0 16px '+c.color+'88;">'+c.emoji+'</div>',
+    className:'',iconSize:[44,44],iconAnchor:[22,22]
   });
 }
 
-function listenChildren() {
-  const { room, db } = getDB();
-  if (!db) { useDemoPolling(); return; }
-
-  setConnDot('online');
-  ['child1','child2'].forEach(role => {
-    const r = ref(db, `rooms/${room}/${role}`);
-    const unsub = onValue(r, snap => {
-      const data = snap.val();
-      updateChildOnMap(role, data);
+function listenKids() {
+  var room = ST.room;
+  if (DB && !DEMO) {
+    setDot('on');
+    ['child1','child2'].forEach(function(role){
+      var r = DB.ref('rooms/'+room+'/'+role);
+      var fn = r.on('value', function(snap){
+        ST.cdata[role] = snap.val();
+        updateMap(role, snap.val());
+      });
+      ST.listeners.push({ref:r,fn:fn});
     });
-    window._state.listeners.push(unsub);
-  });
+  } else {
+    setDot('wait');
+    if (!FB_OK) toast('Firebase SDK 未加载，使用本机演示模式', 'info');
+    else if (DEMO) toast('演示模式：请在同设备其他标签页打开孩子端', 'info');
+    else toast('请先配置 Firebase 以支持跨设备使用', 'info');
+    startDemo();
+  }
 }
 
-function getDB() {
-  const db = window._fb.db;
-  const room = window._state.room;
-  return { db, room };
-}
+function setDot(s) { document.getElementById('conn-dot').className='dot '+s; }
 
-function setConnDot(state) {
-  const dot = document.getElementById('conn-dot');
-  dot.className = `conn-dot ${state}`;
-}
-
-function updateChildOnMap(role, data) {
-  const cfg = CHILD_CFG[role];
-  const map = window._state.map;
-  const now = Date.now();
-  const isOnline = data && data.lat && (now - data.ts < 30000);
-
-  // Update marker
-  if (isOnline) {
-    if (window._state.markers[role]) {
-      window._state.markers[role].setLatLng([data.lat, data.lng]);
-    } else {
-      window._state.markers[role] = L.marker([data.lat, data.lng], { icon:makeChildIcon(role) })
-        .addTo(map)
-        .bindPopup(`<b>${cfg.emoji} ${cfg.name}</b><br>${cfg.age}`);
+function updateMap(role, data) {
+  var now = Date.now();
+  var on = data && data.lat && (now - data.ts < 35000);
+  if (on && ST.map && LEAF_OK) {
+    if (ST.markers[role]) { ST.markers[role].setLatLng([data.lat,data.lng]); }
+    else {
+      ST.markers[role] = L.marker([data.lat,data.lng],{icon:mkIcon(role)})
+        .addTo(ST.map).bindPopup('<b>'+CCFG[role].emoji+' '+CCFG[role].name+'</b><br>'+CCFG[role].age);
     }
   } else {
-    if (window._state.markers[role]) {
-      map.removeLayer(window._state.markers[role]);
-      delete window._state.markers[role];
+    if (ST.markers[role] && ST.map) { ST.map.removeLayer(ST.markers[role]); delete ST.markers[role]; }
+  }
+  renderCards(); updatePill();
+}
+
+function updatePill() {
+  var n = Object.keys(ST.markers).length;
+  var p = document.getElementById('map-pill');
+  if (n>0){ p.textContent='✅ '+n+' 个孩子在线'; p.classList.add('live'); }
+  else { p.textContent='等待孩子开启位置共享…'; p.classList.remove('live'); }
+}
+
+function renderCards() {
+  var g = document.getElementById('cgrid'); g.innerHTML='';
+  var now = Date.now(), any=false;
+  ['child1','child2'].forEach(function(role){
+    var d = ST.cdata[role], cfg = CCFG[role];
+    var on = d && d.lat && (now-d.ts<35000);
+    if(on) any=true;
+    var ago = d ? Math.floor((now-d.ts)/1000) : null;
+    var ts = ago===null?'-- 离线 --':ago<60?ago+'秒前':Math.floor(ago/60)+'分钟前';
+    var card = document.createElement('div');
+    card.className='ccard';
+    card.innerHTML='<div class="odot '+(on?'on':'off')+'"></div>'+
+      '<span class="ca">'+cfg.emoji+'</span>'+
+      '<div class="cn">'+cfg.name+'</div>'+
+      '<div class="cs" style="color:'+(on?'var(--green)':'var(--text3)')+'">'+
+        (on?'● 共享中':'● 未共享')+'</div>'+
+      '<div class="ct">'+ts+'</div>';
+    if (on && d) {
+      (function(dd,rr){ card.onclick=function(){
+        if(ST.map) ST.map.flyTo([dd.lat,dd.lng],17,{duration:1});
+        if(ST.markers[rr]) ST.markers[rr].openPopup();
+      };})(d,role);
     }
-  }
-
-  // Update cards
-  renderChildCards();
-
-  // Update pill
-  const onlineCount = Object.keys(window._state.markers).length;
-  const pill = document.getElementById('online-pill');
-  if (onlineCount > 0) {
-    pill.textContent = `✅ ${onlineCount} 个孩子在线`;
-    pill.classList.add('live');
-  } else {
-    pill.textContent = '等待孩子开启位置共享…';
-    pill.classList.remove('live');
-  }
-}
-
-// Store latest data per role for rendering
-window._childData = {};
-
-function listenChildren() {
-  const { room } = window._state;
-  const db = window._fb.db;
-
-  if (!db) { startDemoPolling(); return; }
-
-  setConnDot('online');
-  ['child1','child2'].forEach(role => {
-    const dbRef = ref(db, `rooms/${room}/${role}`);
-    const unsub = onValue(dbRef, snap => {
-      window._childData[role] = snap.val();
-      updateChildOnMap(role, snap.val());
-    });
-    window._state.listeners.push(unsub);
+    g.appendChild(card);
   });
-}
-
-function renderChildCards() {
-  const grid = document.getElementById('child-grid');
-  grid.innerHTML = '';
-  const now = Date.now();
-  let any = false;
-
-  ['child1','child2'].forEach(role => {
-    const data = window._childData[role];
-    const cfg = CHILD_CFG[role];
-    const online = data && data.lat && (now - data.ts < 30000);
-    if (online) any = true;
-
-    const ago = data ? Math.floor((now - data.ts)/1000) : null;
-    const timeStr = ago === null ? '-- 离线 --' : ago < 60 ? `${ago}秒前` : `${Math.floor(ago/60)}分钟前`;
-
-    const card = document.createElement('div');
-    card.className = 'child-card';
-    card.innerHTML = `
-      <div class="online-dot ${online?'on':'off'}"></div>
-      <span class="ca">${cfg.emoji}</span>
-      <div class="cn">${cfg.name}</div>
-      <div class="cs" style="color:${online?'var(--green)':'var(--text3)'}">${online?'● 共享中':'● 未共享'}</div>
-      <div class="ct">${timeStr}</div>`;
-    if (online && data) {
-      card.onclick = () => {
-        window._state.map?.flyTo([data.lat, data.lng], 17, {duration:1});
-        window._state.markers[role]?.openPopup();
-      };
-    }
-    grid.appendChild(card);
-  });
-
-  if (!any && Object.keys(window._childData).length === 0) {
-    grid.innerHTML = '<div class="empty-state">孩子在APP中开启位置共享后<br>即可在此看到位置 📍</div>';
+  if (!any && Object.keys(ST.cdata).length===0) {
+    g.innerHTML='<div class="empty">孩子在APP中开启位置共享<br>即可在此实时看到位置 📍</div>';
   }
 }
 
-window.fitAllMarkers = function() {
-  const mks = Object.values(window._state.markers);
-  if (!mks.length) { showToast('暂无孩子在线', 'error'); return; }
-  if (mks.length === 1) { window._state.map?.flyTo(mks[0].getLatLng(), 16); return; }
-  const g = L.featureGroup(mks);
-  window._state.map?.fitBounds(g.getBounds().pad(0.3));
-};
+function fitAll() {
+  var mks = Object.values(ST.markers);
+  if (!mks.length||!ST.map){ toast('暂无孩子在线','err'); return; }
+  if (mks.length===1){ ST.map.flyTo(mks[0].getLatLng(),16); return; }
+  ST.map.fitBounds(L.featureGroup(mks).getBounds().pad(0.3));
+}
+window.fitAll = fitAll;
 
-// Demo polling (localStorage fallback)
-function startDemoPolling() {
-  setConnDot('connecting');
-  showToast('演示模式：仅同设备多标签有效', 'info');
+function startDemo() {
   pollDemo();
-  window._demoTimer = setInterval(pollDemo, 4000);
+  clearInterval(demoTimer);
+  demoTimer = setInterval(pollDemo, 4000);
 }
 
 function pollDemo() {
-  ['child1','child2'].forEach(role => {
-    const raw = localStorage.getItem(`ftdemo_${window._state.room}_${role}`);
-    if (!raw) { window._childData[role] = null; updateChildOnMap(role, null); return; }
-    try {
-      const d = JSON.parse(raw);
-      window._childData[role] = d;
-      updateChildOnMap(role, d);
-    } catch(e) {}
+  ['child1','child2'].forEach(function(role){
+    var raw = localStorage.getItem('ftd_'+ST.room+'_'+role);
+    var d=null; if(raw){try{d=JSON.parse(raw);}catch(e){}}
+    ST.cdata[role]=d; updateMap(role,d);
   });
 }
 
-// ═══════════════════════════════════════
+// ══════════════════════════════════════════════════════
 //  CHILD
-// ═══════════════════════════════════════
+// ══════════════════════════════════════════════════════
 function enterChild() {
-  const { role, room } = window._state;
-  const cfg = CHILD_CFG[role];
-  document.getElementById('c-avatar').textContent = cfg.emoji;
-  document.getElementById('c-greeting').textContent = `你好，${window._state.nickname || cfg.name}！`;
-  document.getElementById('c-room').textContent = `ROOM: ${room}`;
-  showScreen('screen-child');
+  var cfg = CCFG[ST.role];
+  document.getElementById('c-ava').textContent = cfg.emoji;
+  document.getElementById('c-greet').textContent = '你好，'+(ST.nick||cfg.name)+'！';
+  document.getElementById('c-room').textContent = 'ROOM: '+ST.room;
+  showScreen('s-child');
 }
 
-window.toggleSharing = function() {
-  window._state.sharing ? stopSharing() : startSharing();
-};
+function toggleShare() { ST.sharing ? stopShare() : startShare(); }
+window.toggleShare = toggleShare;
 
-function startSharing() {
-  if (!navigator.geolocation) { showToast('浏览器不支持定位', 'error'); return; }
+function startShare() {
+  if (!navigator.geolocation){ toast('浏览器不支持定位','err'); return; }
   document.getElementById('s-loc').textContent = '正在获取位置…';
-  const watchId = navigator.geolocation.watchPosition(
-    pos => {
-      const { latitude:lat, longitude:lng, accuracy } = pos.coords;
-      pushLocation(lat, lng);
-      window._state.sharing = true;
-      updateChildUI(true, lat, lng, accuracy);
+  var wid = navigator.geolocation.watchPosition(
+    function(p){
+      var lat=p.coords.latitude, lng=p.coords.longitude, acc=p.coords.accuracy;
+      pushLoc(lat,lng); ST.sharing=true; updChildUI(true,lat,lng,acc);
     },
-    err => {
-      const msgs = {1:'请允许浏览器定位权限', 2:'无法获取位置', 3:'定位超时，请重试'};
-      showToast(msgs[err.code] || '定位失败', 'error');
-      document.getElementById('s-loc').textContent = msgs[err.code] || '定位失败';
+    function(e){
+      var m={1:'请在浏览器弹窗中允许位置权限',2:'无法获取位置，请检查GPS',3:'定位超时，请重试'};
+      toast(m[e.code]||'定位失败','err');
+      document.getElementById('s-loc').textContent=m[e.code]||'定位失败';
     },
-    { enableHighAccuracy:true, maximumAge:5000, timeout:15000 }
+    {enableHighAccuracy:true,maximumAge:5000,timeout:20000}
   );
-  window._state.watchId = watchId;
+  ST.watchId = wid;
 }
 
-function stopSharing() {
-  if (window._state.watchId !== null) {
-    navigator.geolocation.clearWatch(window._state.watchId);
-    window._state.watchId = null;
-  }
-  // Clear from Firebase or localStorage
-  const { room, role } = window._state;
-  const db = window._fb.db;
-  if (db) {
-    remove(ref(db, `rooms/${room}/${role}`)).catch(()=>{});
+function stopShare() {
+  if (ST.watchId!==null){ navigator.geolocation.clearWatch(ST.watchId); ST.watchId=null; }
+  var room=ST.room, role=ST.role;
+  if (DB&&!DEMO){ try{DB.ref('rooms/'+room+'/'+role).remove();}catch(e){} }
+  else { localStorage.removeItem('ftd_'+room+'_'+role); }
+  ST.sharing=false; updChildUI(false);
+}
+
+function pushLoc(lat,lng) {
+  var room=ST.room, role=ST.role;
+  if (DB&&!DEMO) {
+    var r = DB.ref('rooms/'+room+'/'+role);
+    r.set({lat:lat,lng:lng,ts:firebase.database.ServerValue.TIMESTAMP,role:role})
+      .catch(function(e){ toast('位置上传失败: '+e.message,'err'); });
+    r.onDisconnect().remove();
   } else {
-    localStorage.removeItem(`ftdemo_${room}_${role}`);
-  }
-  window._state.sharing = false;
-  updateChildUI(false);
-}
-
-function pushLocation(lat, lng) {
-  const { room, role } = window._state;
-  const db = window._fb.db;
-  const payload = { lat, lng, ts: Date.now(), role };
-
-  if (db) {
-    set(ref(db, `rooms/${room}/${role}`), { lat, lng, ts: serverTimestamp(), role })
-      .catch(e => { showToast('上传位置失败: ' + e.message, 'error'); });
-    // Auto-remove on disconnect
-    onDisconnect(ref(db, `rooms/${room}/${role}`)).remove();
-  } else {
-    localStorage.setItem(`ftdemo_${room}_${role}`, JSON.stringify(payload));
-    try {
-      const bc = new BroadcastChannel(`ftdemo_${room}`);
-      bc.postMessage(payload); bc.close();
-    } catch(e){}
+    var p={lat:lat,lng:lng,ts:Date.now(),role:role};
+    localStorage.setItem('ftd_'+room+'_'+role, JSON.stringify(p));
+    try{ var bc=new BroadcastChannel('ftd_'+room); bc.postMessage(p); bc.close(); }catch(e){}
   }
 }
 
-function updateChildUI(active, lat, lng, acc) {
-  document.getElementById('s-dot').className = `sharing-indicator ${active?'on':'off'}`;
-  document.getElementById('s-label').textContent = active ? '位置共享中 🔴LIVE' : '未开启位置共享';
-  const btn = document.getElementById('s-btn');
-  btn.className = `big-toggle ${active?'on':'off'}`;
-  btn.textContent = active ? '🟢 停止位置共享' : '🔴 开始分享我的位置';
-  document.getElementById('s-loc').innerHTML = active
-    ? `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}<br>精度: ±${Math.round(acc)}m`
-    : '点击下方按钮开始分享位置';
+function updChildUI(on,lat,lng,acc) {
+  document.getElementById('s-dot').className='sind '+(on?'on':'off');
+  document.getElementById('s-lbl').textContent=on?'位置共享中 🔴 LIVE':'未开启位置共享';
+  var b=document.getElementById('s-btn');
+  b.className='bbtn '+(on?'on':'off');
+  b.textContent=on?'🟢 停止位置共享':'🔴 开始分享我的位置';
+  document.getElementById('s-loc').innerHTML=on
+    ?'📍 '+lat.toFixed(5)+', '+lng.toFixed(5)+'<br>精度: ±'+Math.round(acc)+'m'
+    :'点击下方按钮开始分享位置';
 }
 
-// ═══════════════════════════════════════
+// ══════════════════════════════════════════════════════
 //  EXIT
-// ═══════════════════════════════════════
-window.exitRoom = function() {
-  stopSharing();
-  // Unsubscribe Firebase listeners
-  window._state.listeners.forEach(u => { try{ u(); }catch(e){} });
-  window._state.listeners = [];
-  clearInterval(window._demoTimer);
+// ══════════════════════════════════════════════════════
+function exitRoom() {
+  stopShare();
+  ST.listeners.forEach(function(l){ try{l.ref.off('value',l.fn);}catch(e){} });
+  ST.listeners=[]; clearInterval(demoTimer);
+  if(ST.map){ try{ST.map.remove();}catch(e){} ST.map=null; }
+  ST.markers={}; ST.cdata={};
+  ST.role=null; ST.room=null; ST.sharing=false;
+  document.getElementById('room-inp').value='';
+  document.getElementById('nick').value='';
+  document.querySelectorAll('.role-btn').forEach(function(b){b.classList.remove('sel');});
+  document.getElementById('nick-row').style.display='none';
+  updateFBBar();
+  showScreen('s-setup');
+}
+window.exitRoom = exitRoom;
 
-  if (window._state.map) { window._state.map.remove(); window._state.map = null; }
-  window._state.markers = {};
-  window._childData = {};
-  window._state.role = null;
-  window._state.room = null;
-  window._state.sharing = false;
-
-  document.getElementById('room-input').value = '';
-  document.getElementById('nickname-input').value = '';
-  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
-  document.getElementById('name-field').style.display = 'none';
-  showScreen('screen-setup');
-};
-
-// BroadcastChannel for demo same-device sync
-try {
-  window._bc = new BroadcastChannel('ftdemo_global');
-  window._bc.onmessage = () => {
-    if (window._state.role === 'parent' && !window._fb.db) pollDemo();
-  };
-} catch(e){}
+// Cross-tab demo sync
+try{
+  var _bc=new BroadcastChannel('ftd_x');
+  _bc.onmessage=function(){ if(ST.role==='parent'&&DEMO) pollDemo(); };
+}catch(e){}
 </script>
 </body>
 </html>
