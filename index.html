@@ -328,27 +328,36 @@ var CCFG = {
 
 function boot() {
   var saved = localStorage.getItem('fb_config');
+  if (!LEAF_OK) console.warn('Leaflet not loaded');
 
-  if (!LEAF_OK) {
-    // Leaflet didn't load — show error but still allow usage
-    console.warn('Leaflet not loaded');
-  }
-
+  // 恢复 Firebase 配置
   if (saved && saved !== 'DEMO' && FB_OK) {
-    try {
-      var cfg = JSON.parse(saved);
-      initFB(cfg);
-    } catch(e) { localStorage.removeItem('fb_config'); }
+    try { initFB(JSON.parse(saved)); }
+    catch(e) { localStorage.removeItem('fb_config'); }
   } else if (saved === 'DEMO') {
     DEMO = true;
   }
 
+  // 尝试恢复上次会话（角色 + 房间码）
+  var sess = null;
+  try { sess = JSON.parse(localStorage.getItem('ft_session')); } catch(e){}
+
+  if (sess && sess.role && sess.room) {
+    ST.role = sess.role;
+    ST.room = sess.room;
+    ST.nick = sess.nick || '';
+    updateFBBar();
+    setTimeout(function(){
+      toast('已自动恢复上次会话，房间码：' + sess.room, 'ok');
+      if (sess.role === 'parent') enterParent();
+      else enterChild();
+    }, 300);
+    return;
+  }
+
   updateFBBar();
   showScreen('s-setup');
-
-  if (!saved && FB_OK) {
-    setTimeout(openCfg, 600);
-  }
+  if (!saved && FB_OK) setTimeout(openCfg, 600);
 }
 
 // Give scripts 100ms to execute, then boot
@@ -499,6 +508,8 @@ function joinRoom() {
   }
   ST.room = room;
   ST.nick = nick || (CCFG[ST.role] ? CCFG[ST.role].name : '家长');
+  // 保存会话，刷新后自动恢复
+  localStorage.setItem('ft_session', JSON.stringify({ role:ST.role, room:ST.room, nick:ST.nick }));
   if (ST.role === 'parent') enterParent(); else enterChild();
 }
 window.joinRoom = joinRoom;
@@ -797,6 +808,8 @@ function exitRoom() {
   if(ST.map){ try{ST.map.remove();}catch(e){} ST.map=null; }
   ST.markers={}; ST.cdata={};
   ST.role=null; ST.room=null; ST.sharing=false;
+  // 主动退出时清除保存的会话
+  localStorage.removeItem('ft_session');
   document.getElementById('room-inp').value='';
   document.getElementById('nick').value='';
   document.querySelectorAll('.role-btn').forEach(function(b){b.classList.remove('sel');});
