@@ -93,7 +93,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 /* ── MAP ── */
 .map-wrap{flex:1;position:relative;overflow:hidden;background:var(--surface2);min-height:0}
 #map{width:100%;height:100%;min-height:300px}
-.leaflet-container{background:#0d1520!important}
+.leaflet-container{background:#f0eeeb!important}
 .map-pills{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:999;display:flex;gap:6px;pointer-events:none}
 .pill{background:rgba(10,14,26,.9);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:11px;color:var(--text2);backdrop-filter:blur(8px);white-space:nowrap}
 .pill.live{border-color:var(--green);color:var(--green)}
@@ -218,8 +218,8 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
     <span class="lbl">我的身份</span>
     <div class="role-grid">
       <div class="role-btn" onclick="pickRole('parent',this)"><span class="e">👨‍👩‍👧</span><span class="n">家长</span></div>
-      <div class="role-btn" onclick="pickRole('child1',this)"><span class="e">🧒</span><span class="n">大宝<br>11岁</span></div>
-      <div class="role-btn" onclick="pickRole('child2',this)"><span class="e">👦</span><span class="n">二宝<br>8岁</span></div>
+      <div class="role-btn" onclick="pickRole('child1',this)"><span class="e">🧒</span><span class="n">大宝<br>9岁</span></div>
+      <div class="role-btn" onclick="pickRole('child2',this)"><span class="e">👦</span><span class="n">二宝<br>11岁</span></div>
     </div>
 
     <div id="nick-row" style="display:none">
@@ -322,8 +322,8 @@ var ST = {
 };
 
 var CCFG = {
-  child1:{name:'大宝',emoji:'🧒',color:'#f59e0b',age:'11岁'},
-  child2:{name:'二宝',emoji:'👦',color:'#3b82f6',age:'8岁'}
+  child1:{name:'大宝',emoji:'🧒',color:'#f59e0b',age:'9岁'},
+  child2:{name:'二宝',emoji:'👦',color:'#3b82f6',age:'11岁'}
 };
 
 function boot() {
@@ -513,25 +513,115 @@ function enterParent() {
   setTimeout(function(){ initMap(); listenKids(); }, 150);
 }
 
+// 地图瓦片源列表（欧洲/德国优化）
+var TILE_SOURCES = [
+  {
+    name: 'OpenStreetMap',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    opts: { subdomains:'abc', maxZoom:19, crossOrigin:true }
+  },
+  {
+    name: 'CartoDB 清晰版',
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    opts: { subdomains:'abcd', maxZoom:19 }
+  },
+  {
+    name: 'CartoDB 浅色',
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    opts: { subdomains:'abcd', maxZoom:19 }
+  },
+  {
+    name: 'Esri 卫星图',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    opts: { maxZoom:18 }
+  }
+];
+var currentTileIdx = 0;
+var currentTileLayer = null;
+
 function initMap() {
   if (!LEAF_OK || typeof L === 'undefined') {
-    document.getElementById('map').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:13px;flex-direction:column;gap:8px"><span style="font-size:32px">🗺️</span>地图加载失败<br><small>请检查网络后刷新页面</small></div>';
+    document.getElementById('map').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:13px;flex-direction:column;gap:8px;background:#f5f5f5"><span style="font-size:32px">🗺️</span>地图加载失败<br><small>请检查网络后刷新页面</small></div>';
     return;
   }
-  if (ST.map) { try{ ST.map.remove(); }catch(e){} ST.map=null; }
-  var m = L.map('map', {center:[31.2304,121.4737],zoom:14,attributionControl:false});
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(m);
+  if (ST.map) { try{ ST.map.remove(); }catch(e){} ST.map=null; currentTileLayer=null; }
+
+  var m = L.map('map', {
+    center: [51.6742, 8.3244],
+    zoom: 14,
+    attributionControl: false,
+    zoomControl: true
+  });
   ST.map = m;
+
+  // 加载瓦片，自动重试下一个源
+  loadTile(m, 0);
+
+  // 地图切换按钮
+  addTileSwitcher(m);
+
   navigator.geolocation && navigator.geolocation.getCurrentPosition(function(p){
-    m.setView([p.coords.latitude,p.coords.longitude],15);
-  },function(){});
+    m.setView([p.coords.latitude, p.coords.longitude], 16);
+  }, function(){});
+}
+
+function loadTile(m, idx) {
+  if (idx >= TILE_SOURCES.length) {
+    toast('所有地图源均加载失败，请检查网络', 'err');
+    return;
+  }
+  currentTileIdx = idx;
+  var src = TILE_SOURCES[idx];
+  if (currentTileLayer) { try{ m.removeLayer(currentTileLayer); }catch(e){} }
+
+  var layer = L.tileLayer(src.url, src.opts);
+  var tested = false;
+  var failTimer = setTimeout(function(){
+    if (!tested) { tested=true; layer.off(); m.removeLayer(layer); loadTile(m, idx+1); }
+  }, 8000);
+
+  layer.on('load', function(){
+    if (!tested) { tested=true; clearTimeout(failTimer); }
+  });
+  layer.on('tileerror', function(){
+    if (!tested) {
+      tested=true; clearTimeout(failTimer);
+      m.removeLayer(layer);
+      loadTile(m, idx+1);
+    }
+  });
+
+  layer.addTo(m);
+  currentTileLayer = layer;
+  updateTileBtnLabel();
+}
+
+function addTileSwitcher(m) {
+  var btn = document.getElementById('tile-switch-btn');
+  if (btn) btn.remove();
+  var b = L.DomUtil.create('button');
+  b.id = 'tile-switch-btn';
+  b.style.cssText = 'position:absolute;bottom:14px;left:14px;z-index:999;background:#fff;border:1px solid #ddd;border-radius:8px;padding:8px 12px;font-size:12px;cursor:pointer;font-family:Noto Sans SC,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.15);color:#333;white-space:nowrap';
+  b.onclick = function(e){
+    L.DomEvent.stopPropagation(e);
+    var next = (currentTileIdx + 1) % TILE_SOURCES.length;
+    loadTile(ST.map, next);
+    toast('已切换到：' + TILE_SOURCES[next].name, 'info');
+  };
+  document.getElementById('map').appendChild(b);
+  updateTileBtnLabel();
+}
+
+function updateTileBtnLabel() {
+  var btn = document.getElementById('tile-switch-btn');
+  if (btn) btn.textContent = '🗺️ ' + TILE_SOURCES[currentTileIdx].name + ' ▼';
 }
 
 function mkIcon(role) {
   var c = CCFG[role];
   return L.divIcon({
-    html:'<div style="background:'+c.color+';border:3px solid #fff;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 0 16px '+c.color+'88;">'+c.emoji+'</div>',
-    className:'',iconSize:[44,44],iconAnchor:[22,22]
+    html:'<div style="background:'+c.color+';border:3px solid #fff;border-radius:50%;width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 3px 12px rgba(0,0,0,0.35),0 0 0 2px '+c.color+';">'+c.emoji+'</div>',
+    className:'',iconSize:[48,48],iconAnchor:[24,24]
   });
 }
 
