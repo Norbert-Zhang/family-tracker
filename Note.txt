@@ -1,4 +1,4 @@
-https://console.firebase.google.com/project/family-tracker-a92ae/overview
+1. https://console.firebase.google.com/project/family-tracker-a92ae/overview
 
 第一步：创建免费 Firebase 项目（5分钟）
 
@@ -18,3 +18,7 @@ https://console.firebase.google.com/project/family-tracker-a92ae/overview
 用浏览器打开下载的 HTML 文件
 点击底部 ⚙️ Firebase 配置 → 粘贴刚复制的内容 → 保存
 只需配置一次，之后自动记住
+
+2. 把HTML文件上传到静态托管（例如Github)上，并部署发布
+      https://github.com/Norbert-Zhang/family-tracker
+   https://norbert-zhang.github.io/family-tracker/
