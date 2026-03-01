@@ -7,6 +7,11 @@
 <meta name="theme-color" content="#0a0e1a">
 <title>家庭守护</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<!-- PWA 支持 -->
+<link rel="manifest" href="data:application/json;charset=utf-8,{%22name%22:%22%E5%AE%B6%E5%BA%AD%E5%AE%88%E6%8A%A4%22,%22short_name%22:%22%E5%AE%B6%E5%BA%AD%E5%AE%88%E6%8A%A4%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%230a0e1a%22,%22theme_color%22:%22%233b82f6%22,%22icons%22:[{%22src%22:%22data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>%22,%22sizes%22:%22any%22,%22type%22:%22image/svg+xml%22}]}">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="家庭守护">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%233b82f6'/><text y='.85em' x='10' font-size='75'>🛡️</text></svg>">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
 :root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2336;--border:#1e2d45;--accent:#3b82f6;--accent2:#06b6d4;--green:#10b981;--amber:#f59e0b;--red:#ef4444;--text:#e2e8f0;--text2:#94a3b8;--text3:#475569}
@@ -958,6 +963,160 @@ try{
   var _bc=new BroadcastChannel('ftd_x');
   _bc.onmessage=function(){ if(ST.role==='parent'&&DEMO) pollDemo(); };
 }catch(e){}
+
+// ══════════════════════════════════════════════════════
+//  添加到主屏幕引导
+// ══════════════════════════════════════════════════════
+var deferredInstallPrompt = null;
+
+// 捕获 Android Chrome 的安装事件
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  // 显示一键安装按钮
+  var autoBtn = document.getElementById('android-auto-install');
+  var manualSteps = document.getElementById('android-manual-steps');
+  if (autoBtn) autoBtn.style.display = 'block';
+  if (manualSteps) manualSteps.style.display = 'none';
+});
+
+function triggerInstall() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  deferredInstallPrompt.userChoice.then(function(result) {
+    if (result.outcome === 'accepted') {
+      toast('安装成功！请从主屏幕打开', 'ok');
+      closeInstallModal();
+    }
+    deferredInstallPrompt = null;
+  });
+}
+window.triggerInstall = triggerInstall;
+
+function detectPlatform() {
+  var ua = navigator.userAgent;
+  var isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+  var isAndroid = /Android/.test(ua);
+  var isStandalone = window.navigator.standalone === true ||
+                     window.matchMedia('(display-mode: standalone)').matches;
+  return { isIOS:isIOS, isAndroid:isAndroid, isStandalone:isStandalone };
+}
+
+function showInstallGuide() {
+  // 已安装为 PWA 则不提示
+  var p = detectPlatform();
+  if (p.isStandalone) return;
+  // 用户选择了"不再提示"
+  if (localStorage.getItem('install_dismissed') === '1') return;
+
+  var ov = document.getElementById('install-overlay');
+  var iosSteps = document.getElementById('ios-steps');
+  var androidSteps = document.getElementById('android-steps');
+
+  if (p.isIOS) {
+    if (iosSteps) iosSteps.style.display = 'block';
+    if (androidSteps) androidSteps.style.display = 'none';
+  } else {
+    // Android 或桌面
+    if (iosSteps) iosSteps.style.display = 'none';
+    if (androidSteps) androidSteps.style.display = 'block';
+  }
+
+  if (ov) {
+    ov.style.display = 'flex';
+    // 点击遮罩关闭
+    ov.onclick = function(e) { if(e.target===ov) closeInstallModal(); };
+  }
+}
+window.showInstallGuide = showInstallGuide;
+
+function closeInstallModal(neverShow) {
+  var ov = document.getElementById('install-overlay');
+  if (ov) ov.style.display = 'none';
+  if (neverShow) localStorage.setItem('install_dismissed', '1');
+}
+window.closeInstallModal = closeInstallModal;
+
+// 进入孩子界面后 2 秒自动弹出引导（仅在移动设备且未安装时）
+var _origEnterChild = enterChild;
+enterChild = function() {
+  _origEnterChild();
+  var p = detectPlatform();
+  if ((p.isIOS || p.isAndroid) && !p.isStandalone) {
+    // 首次进入延迟弹出，之后不重复弹
+    if (!localStorage.getItem('install_shown')) {
+      localStorage.setItem('install_shown', '1');
+      setTimeout(showInstallGuide, 2000);
+    }
+  }
+};
 </script>
+
+<!-- ══════ 添加到主屏幕引导弹窗 ══════ -->
+<div id="install-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:3000;align-items:flex-end;justify-content:center;backdrop-filter:blur(6px);padding:0">
+  <div id="install-modal" style="background:#111827;border:1px solid #1e2d45;border-radius:24px 24px 0 0;padding:28px 24px 36px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;position:relative;animation:slideUp .35s ease">
+    @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:48px;margin-bottom:8px">📲</div>
+      <div style="font-size:18px;font-weight:700;color:#e2e8f0;margin-bottom:6px">添加到主屏幕</div>
+      <div style="font-size:13px;color:#64748b;line-height:1.6">安装后像 APP 一样使用，后台运行更稳定<br>位置共享不易中断</div>
+    </div>
+
+    <!-- iOS 步骤 -->
+    <div id="ios-steps" style="display:none">
+      <div style="font-size:12px;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;font-family:'Space Mono',monospace">iPhone / iPad · Safari 浏览器</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="background:#1a2336;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px">
+          <div style="font-size:28px;flex-shrink:0">1️⃣</div>
+          <div style="font-size:13px;color:#e2e8f0;line-height:1.6">点击底部工具栏中间的 <b style="color:#3b82f6">分享按钮</b><span style="font-size:18px"> ⎙ </span>（方框加箭头图标）</div>
+        </div>
+        <div style="background:#1a2336;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px">
+          <div style="font-size:28px;flex-shrink:0">2️⃣</div>
+          <div style="font-size:13px;color:#e2e8f0;line-height:1.6">在弹出菜单中向下滑动，找到并点击<b style="color:#3b82f6">「添加到主屏幕」</b></div>
+        </div>
+        <div style="background:#1a2336;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px">
+          <div style="font-size:28px;flex-shrink:0">3️⃣</div>
+          <div style="font-size:13px;color:#e2e8f0;line-height:1.6">右上角点击 <b style="color:#3b82f6">「添加」</b>，主屏幕上会出现🛡️图标</div>
+        </div>
+        <div style="background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);border-radius:12px;padding:12px 14px;font-size:12px;color:#94a3b8;line-height:1.7">
+          ⚠️ <b style="color:#e2e8f0">必须用 Safari 才能添加</b>，Chrome/Firefox 不支持 iOS 主屏幕安装
+        </div>
+      </div>
+    </div>
+
+    <!-- Android 步骤（Chrome 自动提示） -->
+    <div id="android-steps" style="display:none">
+      <div style="font-size:12px;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;font-family:'Space Mono',monospace">Android · Chrome 浏览器</div>
+      <div id="android-auto-install" style="display:none;margin-bottom:12px">
+        <button onclick="triggerInstall()" style="width:100%;background:linear-gradient(135deg,#3b82f6,#06b6d4);border:none;border-radius:14px;padding:16px;color:#fff;font-size:16px;font-weight:700;font-family:'Noto Sans SC',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(59,130,246,.35)">
+          📲 一键安装到主屏幕
+        </button>
+        <div style="font-size:12px;color:#475569;text-align:center;margin-top:8px">点击后按照提示操作即可</div>
+      </div>
+      <div id="android-manual-steps" style="display:flex;flex-direction:column;gap:10px">
+        <div style="background:#1a2336;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px">
+          <div style="font-size:28px;flex-shrink:0">1️⃣</div>
+          <div style="font-size:13px;color:#e2e8f0;line-height:1.6">点击浏览器右上角 <b style="color:#3b82f6">「⋮」三点菜单</b></div>
+        </div>
+        <div style="background:#1a2336;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px">
+          <div style="font-size:28px;flex-shrink:0">2️⃣</div>
+          <div style="font-size:13px;color:#e2e8f0;line-height:1.6">选择 <b style="color:#3b82f6">「添加到主屏幕」</b> 或 <b style="color:#3b82f6">「安装应用」</b></div>
+        </div>
+        <div style="background:#1a2336;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px">
+          <div style="font-size:28px;flex-shrink:0">3️⃣</div>
+          <div style="font-size:13px;color:#e2e8f0;line-height:1.6">点击 <b style="color:#3b82f6">「安装」</b>，主屏幕出现🛡️图标，像 APP 一样打开</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部按钮 -->
+    <div style="margin-top:20px;display:flex;gap:10px">
+      <button onclick="closeInstallModal()" style="flex:1;background:#1a2336;border:1px solid #1e2d45;border-radius:12px;padding:14px;color:#94a3b8;font-size:14px;font-family:'Noto Sans SC',sans-serif;cursor:pointer">稍后再说</button>
+      <button onclick="closeInstallModal(true)" style="flex:1;background:#1a2336;border:1px solid #1e2d45;border-radius:12px;padding:14px;color:#475569;font-size:13px;font-family:'Noto Sans SC',sans-serif;cursor:pointer">不再提示</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
