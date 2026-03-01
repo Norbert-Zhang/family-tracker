@@ -292,6 +292,18 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       <button class="bbtn off" id="s-btn" onclick="toggleShare()">🔴 开始分享我的位置</button>
     </div>
     <p class="notice"><b>爸爸/妈妈可以实时看到你的位置</b><br>外出时请保持开启，到家后关闭 ❤️</p>
+
+    <!-- 后台状态提示 -->
+    <div id="bg-tip" style="display:none;margin-top:14px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);border-radius:12px;padding:12px 14px;font-size:12px;color:#f59e0b;line-height:1.8;text-align:left">
+      <b>⚠️ 页面进入后台</b><br>
+      位置共享已暂停。请重新打开此页面继续共享。
+    </div>
+
+    <!-- 保持屏幕常亮提示 -->
+    <div id="wakelock-tip" style="margin-top:14px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);border-radius:12px;padding:12px 14px;font-size:12px;color:#10b981;line-height:1.8;text-align:left">
+      <span id="wakelock-icon">🔆</span> <span id="wakelock-text">正在保持屏幕常亮，共享不会中断</span>
+    </div>
+
     <br>
     <button class="ibtn red" style="margin:0 auto;display:block" onclick="exitRoom()">退出</button>
   </div>
@@ -740,6 +752,10 @@ function pollDemo() {
 // ══════════════════════════════════════════════════════
 //  CHILD
 // ══════════════════════════════════════════════════════
+var wakeLock = null;
+var heartbeatTimer = null;  // 定期补发位置，防止 watchPosition 被节流
+var lastLat = null, lastLng = null, lastAcc = null;
+
 function enterChild() {
   var cfg = CCFG[ST.role];
   document.getElementById('c-ava').textContent = cfg.emoji;
@@ -751,30 +767,144 @@ function enterChild() {
 function toggleShare() { ST.sharing ? stopShare() : startShare(); }
 window.toggleShare = toggleShare;
 
-function startShare() {
-  if (!navigator.geolocation){ toast('浏览器不支持定位','err'); return; }
-  document.getElementById('s-loc').textContent = '正在获取位置…';
+// ── Wake Lock：阻止屏幕锁屏 ──────────────────────────────
+async function requestWakeLock() {
+  var tip = document.getElementById('wakelock-tip');
+  var icon = document.getElementById('wakelock-icon');
+  var text = document.getElementById('wakelock-text');
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      icon.textContent = '🔆';
+      text.textContent = '屏幕保持常亮中，位置共享不会中断';
+      if(tip) tip.style.borderColor = 'rgba(16,185,129,.4)';
+      wakeLock.addEventListener('release', function() {
+        // 被系统强制释放时（如来电），尝试重新申请
+        if (ST.sharing) setTimeout(requestWakeLock, 1000);
+      });
+    } else {
+      icon.textContent = '⚠️';
+      text.textContent = '此浏览器不支持屏幕常亮，请勿锁屏或切换应用';
+      if(tip) { tip.style.background='rgba(245,158,11,.1)'; tip.style.borderColor='rgba(245,158,11,.4)'; tip.style.color='#f59e0b'; }
+    }
+  } catch(e) {
+    icon.textContent = '⚠️';
+    text.textContent = '屏幕常亮申请被拒绝，请勿锁屏';
+    if(tip) { tip.style.background='rgba(245,158,11,.1)'; tip.style.borderColor='rgba(245,158,11,.4)'; tip.style.color='#f59e0b'; }
+  }
+}
+
+function releaseWakeLock() {
+  if (wakeLock) { try{ wakeLock.release(); }catch(e){} wakeLock=null; }
+  var icon = document.getElementById('wakelock-icon');
+  var text = document.getElementById('wakelock-text');
+  if(icon) icon.textContent = '💤';
+  if(text) text.textContent = '屏幕常亮已关闭';
+}
+
+// ── Page Visibility：页面重回前台时自动恢复定位 ────────────
+document.addEventListener('visibilitychange', function() {
+  var bgTip = document.getElementById('bg-tip');
+  if (document.hidden) {
+    // 进入后台
+    if (ST.sharing && bgTip) bgTip.style.display = 'block';
+    // Wake Lock 在后台自动被释放，无需手动处理
+  } else {
+    // 回到前台
+    if (bgTip) bgTip.style.display = 'none';
+    if (ST.sharing) {
+      // 重新申请 Wake Lock
+      requestWakeLock();
+      // 若 watchPosition 已被暂停，重启它
+      restartWatchIfNeeded();
+      toast('已恢复位置共享', 'ok');
+    }
+  }
+});
+
+var lastPushTime = 0;
+
+function restartWatchIfNeeded() {
+  // 如果超过 20 秒没有收到新位置，重启 watchPosition
+  var now = Date.now();
+  if (now - lastPushTime > 20000 && ST.sharing) {
+    if (ST.watchId !== null) {
+      navigator.geolocation.clearWatch(ST.watchId);
+      ST.watchId = null;
+    }
+    doWatch();
+  }
+}
+
+function doWatch() {
   var wid = navigator.geolocation.watchPosition(
-    function(p){
+    function(p) {
       var lat=p.coords.latitude, lng=p.coords.longitude, acc=p.coords.accuracy;
-      pushLoc(lat,lng); ST.sharing=true; updChildUI(true,lat,lng,acc);
+      lastLat=lat; lastLng=lng; lastAcc=acc;
+      lastPushTime = Date.now();
+      pushLoc(lat, lng);
+      ST.sharing = true;
+      updChildUI(true, lat, lng, acc);
+      // 回到前台后隐藏后台提示
+      var bgTip = document.getElementById('bg-tip');
+      if (bgTip) bgTip.style.display = 'none';
     },
-    function(e){
-      var m={1:'请在浏览器弹窗中允许位置权限',2:'无法获取位置，请检查GPS',3:'定位超时，请重试'};
-      toast(m[e.code]||'定位失败','err');
-      document.getElementById('s-loc').textContent=m[e.code]||'定位失败';
+    function(e) {
+      var m={1:'请在浏览器弹窗中允许位置权限',2:'无法获取位置，请检查GPS',3:'定位超时，将自动重试'};
+      if (e.code === 3 && ST.sharing) {
+        // 超时时自动重启
+        if (ST.watchId !== null) { navigator.geolocation.clearWatch(ST.watchId); ST.watchId = null; }
+        setTimeout(function(){ if(ST.sharing) doWatch(); }, 2000);
+      } else {
+        toast(m[e.code]||'定位失败', 'err');
+        document.getElementById('s-loc').textContent = m[e.code]||'定位失败';
+      }
     },
-    {enableHighAccuracy:true,maximumAge:5000,timeout:20000}
+    {enableHighAccuracy:true, maximumAge:10000, timeout:25000}
   );
   ST.watchId = wid;
 }
 
+// ── 心跳补发：每 25 秒用最后已知位置补发一次，保持 Firebase 不超时 ──
+function startHeartbeat() {
+  clearInterval(heartbeatTimer);
+  heartbeatTimer = setInterval(function() {
+    if (!ST.sharing) return;
+    var now = Date.now();
+    // 若超过 20 秒没收到新位置（后台被节流），用最后已知位置补发
+    if (now - lastPushTime > 20000 && lastLat !== null) {
+      pushLoc(lastLat, lastLng);
+    }
+    // 同时检查是否需要重启 watchPosition
+    restartWatchIfNeeded();
+  }, 25000);
+}
+
+function stopHeartbeat() {
+  clearInterval(heartbeatTimer);
+  heartbeatTimer = null;
+}
+
+function startShare() {
+  if (!navigator.geolocation){ toast('浏览器不支持定位','err'); return; }
+  document.getElementById('s-loc').textContent = '正在获取位置…';
+  lastPushTime = 0;
+  doWatch();
+  requestWakeLock();
+  startHeartbeat();
+}
+
 function stopShare() {
   if (ST.watchId!==null){ navigator.geolocation.clearWatch(ST.watchId); ST.watchId=null; }
+  releaseWakeLock();
+  stopHeartbeat();
+  lastLat=null; lastLng=null;
   var room=ST.room, role=ST.role;
   if (DB&&!DEMO){ try{DB.ref('rooms/'+room+'/'+role).remove();}catch(e){} }
   else { localStorage.removeItem('ftd_'+room+'_'+role); }
   ST.sharing=false; updChildUI(false);
+  var bgTip = document.getElementById('bg-tip');
+  if(bgTip) bgTip.style.display='none';
 }
 
 function pushLoc(lat,lng) {

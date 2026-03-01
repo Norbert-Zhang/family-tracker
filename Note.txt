@@ -21,4 +21,4 @@
 
 2. 把HTML文件上传到静态托管（例如Github)上，并部署发布
       https://github.com/Norbert-Zhang/family-tracker
-   https://norbert-zhang.github.io/family-tracker/
+      https://norbert-zhang.github.io/family-tracker/
